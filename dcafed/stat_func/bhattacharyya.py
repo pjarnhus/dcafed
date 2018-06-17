@@ -1,10 +1,26 @@
 from scipy.stats import gaussian_kde
 from scipy.integrate import romb
-from pandas import DataFrame, concat
+from pandas import DataFrame, concat, Series
+from numpy import sqrt, log
 
 
 def _bhattacharyya_cat(df_1, df_2, var_list):
-    return None
+    """
+
+    :param df_1: First DataFrame
+    :param df_2: Second DataFrame
+    :param var_list: list - categorical variables to be included in the calculation, all variables must match a column
+    in each DataFrame
+    :return: Pandas Series with the distance as values and column names as indices
+    """
+    p = df_1[var_list].melt().groupby(['variable', 'value']).size()/df_1.shape[0]
+    q = df_2[var_list].melt().groupby(['variable', 'value']).size()/df_2.shape[0]
+
+    has_missing = (p*q).isnull().groupby('variable').any()
+    bc = (sqrt(p*q)).groupby('variable').sum()
+    bc[has_missing] = None
+    return -log(bc)
+
 
 def _bhattacharyya_cont(df_1, df_2, var_list):
     return None
@@ -14,6 +30,7 @@ def bhattacharyya(df_1, df_2, categorical_variables=None, continuous_variables=N
     Compute the Bhattacharyya distance between distributions in the DataFrames df_1 and df_2
     Any column not in both DataFrames will be assumed to have infinity distance between the two distributions,
     and a missing value will be returned.
+    A missing value is also returned if any categorical variable has a value in one DataFrame, that is not in the other
     The result is independent of the order of the DataFrames
     :param df_1: First DataFrame
     :param df_2: Second DataFrame
@@ -38,11 +55,19 @@ def bhattacharyya(df_1, df_2, categorical_variables=None, continuous_variables=N
     if categorical_variables is None and continuous_variables is None:
         return None
 
+    cat_dist = None
+    cont_dist = None
     if categorical_variables is not None:
         if isinstance(categorical_variables, str):
-            categorical_variables = categorical_variables
+            var_list = [categorical_variables]
+        else:
+            var_list = categorical_variables
 
-        cat_dist = _bhattacharyya_cat(df_1, df_2, categorical_variables)
+        missing_var = [v for v in var_list if (v not in df_1.columns) or (v not in df_2.columns)]
+        var_list = [v for v in var_list if (v in df_1.columns) and (v in df_2.columns)]
+        cat_dist = _bhattacharyya_cat(df_1, df_2, var_list)
+        if len(missing_var)>0:
+            cat_dist = concat([cat_dist, Series(None, index=missing_var)])
 
     if continuous_variables is not None:
         if isinstance(continuous_variables, str):
@@ -50,9 +75,4 @@ def bhattacharyya(df_1, df_2, categorical_variables=None, continuous_variables=N
 
         cont_dist = _bhattacharyya_cont(df_1, df_2, continuous_variables)
 
-    if categorical_variables is not None and continuous_variables is not None:
-        return concat(cat_dist, cont_dist)
-    elif categorical_variables is not None:
-        return cat_dist
-    else:
-        return cont_dist
+    return concat([cat_dist, cont_dist])
