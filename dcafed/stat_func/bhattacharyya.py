@@ -1,7 +1,13 @@
 from scipy.stats import gaussian_kde
 from scipy.integrate import romb
-from pandas import DataFrame
+from pandas import DataFrame, concat
 
+
+def _bhattacharyya_cat(df_1, df_2, var_list):
+    return None
+
+def _bhattacharyya_cont(df_1, df_2, var_list):
+    return None
 
 def bhattacharyya(df_1, df_2, categorical_variables=None, continuous_variables=None):
     """
@@ -31,3 +37,22 @@ def bhattacharyya(df_1, df_2, categorical_variables=None, continuous_variables=N
 
     if categorical_variables is None and continuous_variables is None:
         return None
+
+    if categorical_variables is not None:
+        if isinstance(categorical_variables, str):
+            categorical_variables = categorical_variables
+
+        cat_dist = _bhattacharyya_cat(df_1, df_2, categorical_variables)
+
+    if continuous_variables is not None:
+        if isinstance(continuous_variables, str):
+            continuous_variables = continuous_variables
+
+        cont_dist = _bhattacharyya_cont(df_1, df_2, continuous_variables)
+
+    if categorical_variables is not None and continuous_variables is not None:
+        return concat(cat_dist, cont_dist)
+    elif categorical_variables is not None:
+        return cat_dist
+    else:
+        return cont_dist
