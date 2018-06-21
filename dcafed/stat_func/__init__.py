@@ -1,1 +1,1 @@
-from .bhattacharyya import *
+from .bhattacharyya import bhattacharyya
